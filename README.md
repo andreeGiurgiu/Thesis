@@ -1,5 +1,9 @@
 # Thesis
 
+## Datasets
+Manual filter list of keys: https://docs.google.com/document/d/1sB-nQCXBu0jGPG9COnK6wgwA35o8ewaHtSu6YpbOSUg/edit?usp=share_link
+Combine OSM with WV final csv file: https://docs.google.com/spreadsheets/d/1ffB7ZDX7pY9FB4BdlbphqGFMUCDQiKokl1V134UKXxY/edit?usp=share_link
+
 ## Methodology 
 The OSM database which is in form of a json file is composed from type,geometry and properties. We first look for the most frequent types and properties, then we create a csv file with the overlaping of the 2 frequency lists. After we manually filter the 362 overlaping keys, we remain with 162 keys. The next step was in understanding which of this key are fix or variable. Fix meaning they have a specific set of tag and variable meaning they can take any variable ( like phone numbers and adress number ) At the end we combine the OSM dataset with the WV one based on geometry points and assigned theright tags. 
 
