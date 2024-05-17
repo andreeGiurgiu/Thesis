@@ -2,7 +2,7 @@ import csv
 from openai import OpenAI
 
 # Initialize the OpenAI client
-client = OpenAI(api_key='sk-proj-fAgcyKyxgDuNFb5Ehbh2T3BlbkFJcAF0Xk1mXyhfPY0Q8HZp')
+client = OpenAI(api_key='x')
 
 # Function to load data from a CSV file
 def load_csv_data(file_path):
