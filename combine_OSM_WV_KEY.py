@@ -1,6 +1,5 @@
 import csv
 import json
-from collections import defaultdict
 from geopy.distance import geodesic
 from shapely.geometry import Point, LineString, Polygon
 
@@ -28,7 +27,7 @@ def write_csv(data, file_path):
         for row in data:
             writer.writerow(row)
 
-def find_closest_osm(wv_entry, osm_data):
+def find_closest_osm(wv_entry, osm_data, tags_analysis):
     if 'latitude' not in wv_entry or 'longitude' not in wv_entry or not wv_entry['latitude'] or not wv_entry['longitude']:
         return None
     wv_point = Point(float(wv_entry['longitude']), float(wv_entry['latitude']))
@@ -49,8 +48,13 @@ def find_closest_osm(wv_entry, osm_data):
 
             distance = geodesic((wv_point.y, wv_point.x), (osm_point.y, osm_point.x)).meters
             if distance < min_distance:
-                min_distance = distance
-                closest_osm = osm_entry
+                osm_name = osm_entry['properties'].get('name', '').lower()
+                osm_website = osm_entry['properties'].get('website', '').lower()
+                wv_name = wv_entry.get('title', '').lower()
+                wv_website = wv_entry.get('url', '').lower()
+                if (osm_name == wv_name or osm_website == wv_website):
+                    min_distance = distance
+                    closest_osm = osm_entry
         except Exception as e:
             print(f"Error processing OSM entry: {osm_entry} -- {e}")
 
@@ -58,22 +62,23 @@ def find_closest_osm(wv_entry, osm_data):
 
 def attribute_osm_to_wv(wv_data, osm_data, tags_analysis):
     enhanced_wv_data = []
+    combined_count = 0  # Initialize a counter to track successful combinations
     for wv_entry in wv_data:
-        closest_osm = find_closest_osm(wv_entry, osm_data)
+        closest_osm = find_closest_osm(wv_entry, osm_data, tags_analysis)
         if closest_osm:
             for key, value in closest_osm['properties'].items():
-                if tags_analysis.get(key, '') == 'X':
+                if key in tags_analysis and tags_analysis[key] != 'X':
                     wv_entry[key] = value
-                elif key in tags_analysis:
-                    wv_entry[key] = value
+            combined_count += 1  # Increment the counter
         enhanced_wv_data.append(wv_entry)
+    print(f"Total combined entries: {combined_count}")  # Output the count of combined entries
     return enhanced_wv_data
 
 # Paths to your files
 osm_tags_path = '/Users/andreeagiurgiu/Desktop/Thesis/Amsterdam_interesting.osm.geojson'
 wv_path = '/Users/andreeagiurgiu/Desktop/Thesis/wikivoyage-amsterdam.csv'
 analysis_path = '/Users/andreeagiurgiu/Desktop/Thesis/keys_analysis.csv'
-output_path = '/Users/andreeagiurgiu/Desktop/Thesis/combine_OSM_WV_keys.csv'
+output_path = '/Users/andreeagiurgiu/Desktop/Thesis/inproved_wikivoyage_with_OSM_values.csv'
 
 # Load data
 osm_data = read_json(osm_tags_path)
