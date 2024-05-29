@@ -4,14 +4,14 @@ import numpy as np
 import csv
 
 # Configure your OpenAI API key here
-openai.api_key = 'X'
+openai.api_key = 'x'
 
 
 
 # Load your dataset
-data = pd.read_csv('/Users/andreeagiurgiu/Desktop/Thesis/New_filter_sections.csv')
+data = pd.read_csv('/Users/andreeagiurgiu/Desktop/Thesis/New_filter_sections2.csv')
 
-# Getting only the colloms on which we want to do the filtering 
+# Getting only the colloms on which we want to do the filtering
 
 def filter_columns(dataframe):
     # List of columns to keep
@@ -20,8 +20,10 @@ def filter_columns(dataframe):
         'indoor/outdoor seating', 'cuisine', 'beauty', 'shop', 
         'stars', 'internet_access', 'smoking', 'type', 'amenity', 
         'meal', 'Micheline', 'category', 'Service', 
-        'room_facilities', 'accommodation_type', 'drink type', 
-        'music type', 'Ambiental', 'price range'
+        'accommodation_type', 'drink type', 
+        'music type', 'Ambiental', 'price range', 'private_bath' , 'air_conditioning' , 'bath' , 'balcony' , 'view' ,
+        'kitchen' , 'tv',  'bed_number' , 'size','shop','brand'
+
     ]
 
     filtered_data = dataframe[dataframe.columns.intersection(columns_to_keep)]
@@ -30,7 +32,7 @@ def filter_columns(dataframe):
 
 def get_most_frequent_column(input_file_path):
     """
-    Identify the column with the highest number of unique values in a CSV file 
+    Identify the column with the highest number of filled (non-null) cells in a CSV file 
     and return its unique values.
 
     Parameters:
@@ -42,17 +44,16 @@ def get_most_frequent_column(input_file_path):
     # Load the CSV file
     data = input_file_path
 
-    # Calculate the number of unique values in each column
-    unique_values_count = data.nunique()
+    # Calculate the number of non-null values in each column
+    non_null_counts = data.count()
 
-    # Identify the column with the highest number of unique values
-    most_variant_column = unique_values_count.idxmax()
+    # Identify the column with the highest number of non-null values
+    most_filled_column = non_null_counts.idxmax()
 
     # Retrieve the unique values from this column
-    unique_values = data[most_variant_column].unique()
+    unique_values = data[most_filled_column].dropna().unique()
 
-    return (most_variant_column, unique_values)
-
+    return (most_filled_column, unique_values)
 
 def filter_data_by_column_value(input_file_path, column_name, filter_value):
     """
@@ -77,77 +78,93 @@ def filter_data_by_column_value(input_file_path, column_name, filter_value):
 def manin_conversation(dataframe):
 
     #first question
-    print('Hey, with what can I help you? Would you like to search for a place to sleep, eat, drink, do an activity, or buy ?')
-    user_input = input("Type your response here. Please just say sleep, eat, drink, do or buy: ")
-
-    #filter data based on sleep, eat, drink, do or buy
-    print(user_input.strip().lower())
-    new_dataframe = filter_data_by_column_value(dataframe,'type',user_input.strip().lower())
-    print(user_input)
+    new_dataframe  = dataframe
+    colloms_filter = []
     
 
     #loop until last 10 rows in order for the chat to be able to see all the data
-    while len(dataframe) > 10:
+    while len(new_dataframe ) > 10:
 
        #most variant collom
        collom, values = get_most_frequent_column(filter_columns(new_dataframe))
-       print(values)
-       
-       #chat asking + user choosing the variable
-       response = openai.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "You are a travel agent that is helping the user to find the best thing to do in Amsterdam. Create one question in order for the user to choose one of the filtering possible values. This question will bring you closer to finding the best location. Keep in mind the user can only choose this specific variables"},
-            {"role": "user", "content": f"'{values}'" }
-        ]
-    )
-       question = response.choices[0].message.content
-       print(question)
+       colloms_filter.append(collom)
 
-       #chat giving the value
-       user_input = input("Type your response here: ")
-       value = openai.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "You are a system that is working on filtering data in order to find the best data points. In order to do so you need to choose one of the possible frequent values: '{values}' and give exactly just that one word so that the rest of the systme is able to filter. If the user is only giving you one words answers and it matching the frequent variable let that be your answer"},
-            {"role": "user", "content": f"'{user_input}'"}
-        ]
-    )
-       choise = value.choices[0].message.content
-       print(choise)
+       if collom in ['wheelchair','takeaway', 'internet_access','private_bath' , 'air_conditioning', 'balcony', 'kitchen', 'tv']:
+           questions = openai.chat.completions.create(
+               model="gpt-3.5-turbo",
+               messages=[
+                   {"role": "system", "content": f"Create a simple question that just asked a person if they need the amenity given by the user "},
+                   {"role": "user", "content": f"'{collom}'"}
+               ]
+           )
 
-       #filter basen on value
-       new_dataframe = filter_data_by_column_value(new_dataframe,collom,choise)
+           questions_2 = questions.choices[0].message.content
+           print(questions_2)
+           user_input = input("Just say yes or no: ") 
+           if user_input.lower() == 'yes':  # Use '==' for comparison instead of 'is'
+               new_dataframe = filter_data_by_column_value(new_dataframe, collom, user_input)
+               new_dataframe = new_dataframe.drop(columns=[collom])
+           else:
+               new_dataframe = new_dataframe
+       else:
+           if len(values) > 2:
+               for idx, value in enumerate(values, start=1):
+                   print(f"{idx}. {value}")
+
+               # Ask the user to choose a filtering value
+               user_input = int(input("Choose a number corresponding to the value you want to filter by: ")) - 1
+               user_input = values[user_input]
+           else:
+               user_input = values[0]
+            
+            #filter basen on value
+           new_dataframe = filter_data_by_column_value(new_dataframe,collom,user_input)
+           print(new_dataframe)
+           new_dataframe = new_dataframe.drop(columns=[collom])
+
     
     #return new_dataframe
 
     # let chat see all the data and choose tope 3 questions
-    questions = openai.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate the dataframe given by the user and create 3 question that will help you find the perfect location "},
-            {"role": "user", "content": f"'{new_dataframe}'" }
+    if len(new_dataframe) > 1:
+        merged_dataframe = pd.merge(new_dataframe, dataframe, on='title', how='inner')
+        questions = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+               {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate the dataframe given by the user and look only at the possible fill colloms that you have the data and that are different from each other so that the user can choose, and create 3 question that will help you find the perfect location. Try to not ask about this colloms '{colloms_filter}' as the user alredy filter on this "},
+               {"role": "user", "content": f"'{merged_dataframe}'" }
         ]
     )
-    questions_ = questions.choices[0].message.content
-    print(questions_)
+        questions_ = questions.choices[0].message.content
+        print(questions_)
+        
     
-    #based on user answers chat chose the perfect place to go
-    user_input = input("Type your response here: ")
-    final_answer = openai.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate theis database '{new_dataframe}'and based on the user answer to choose exactly one place that you think will be best to recomand"},
-            {"role": "user", "content": f"'{user_input}'" }
+        #based on user answers chat chose the perfect place to go
+        user_input = input("Type your response here: ")
+        final_answer = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate theis database '{merged_dataframe}'and based on the user answer to choose exactly one place that you think will be best to recomand. Make sure that you specify the name of the place that is found on the title collom. Also make everything in a sentance specifying only the colloms with value"},
+                {"role": "user", "content": f"'{user_input}'" }
         ]
     )
-    top_value = final_answer.choices[0].message.content
-    print(top_value)
+        top_value = final_answer.choices[0].message.content
+        return top_value
+    else: 
+        final_answer = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate the database given by the user and explain the two possible option. Make sure that you first say the name that you fint in the title or name collom of the places and then a short explanation. Give a cursive explanation. Say just thing that make sense for the place. Just explain the name, where can I find it and if it has a wibsite please also share it"},
+                 {"role": "user", "content": f"'{new_dataframe}'" }
+        ]
+    )
+        top_value = final_answer.choices[0].message.content
+        return top_value
 
 
 
 
-input_data = pd.read_csv('/Users/andreeagiurgiu/Desktop/Thesis/New_filter_sections.csv')
+input_data = pd.read_csv('/Users/andreeagiurgiu/Desktop/Thesis/New_filter_sections2.csv')
 final_data = manin_conversation(input_data)
 
 
