@@ -187,7 +187,6 @@ def answer():
         finished = True
     
     session['dataframe'] = new_dataframe.to_dict()
-    session['counter'] = counter + 1
 
     return {
         'count': counter, 
