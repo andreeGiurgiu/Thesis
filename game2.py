@@ -8,7 +8,7 @@ openai.api_key = 'x'
 
 
 # Load your dataset
-data = pd.read_csv('/Users/andreeagiurgiu/Desktop/Test/New_filter_sections3 copy.csv')
+data = pd.read_csv('New_filter_sections.csv')
 
 def filter_columns(dataframe):
     # List of columns to keep

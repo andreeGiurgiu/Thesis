@@ -1,10 +1,10 @@
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, jsonify, session, render_template
 from flask_cors import CORS
 from flask_session import Session  # For session management
 import pandas as pd
 import openai
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='.')
 CORS(app)
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
@@ -14,7 +14,7 @@ Session(app)
 openai.api_key = 'x'
 
 # Load your dataset
-data = pd.read_csv('/Users/andreeagiurgiu/Desktop/Thesis/New_filter_sections.csv')
+data = pd.read_csv('New_filter_sections.csv')
 
 # Getting only the colloms on which we want to do the filtering
 
@@ -104,7 +104,8 @@ def three_questions(merged_dataframe):
 def general_question(values):
         value_options = "\n".join([f"{i+1}. {v}" for i, v in enumerate(values)])
         question = f"Choose a number corresponding to the value you want to filter by:\n{value_options}"
-        return question
+        return question, value_options
+
 def final(merged_dataframe, user_input):
     final_answer = openai.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -115,47 +116,38 @@ def final(merged_dataframe, user_input):
     )
         
     return final_answer.choices[0].message.content
-     
-    
-new_dataframe = data
-@app.route('/start', methods=['GET'])
-def start():
-    # Initial question
-    #first_question = "Hello! I am Kuromi. I am here to help you in choosing the best place or activity for you in your travelling plans in Amsterdam?"
-    #most variant collom
-    session['dataframe'] = data
-    session.modified = True
-    session['counter'] = 0
-    session['columns_filter'] = []
-    colloms_filter = []
-    collom, values = get_most_frequent_column(filter_columns(data))
-    colloms_filter.append(collom)
-    session['columns_filter'] = colloms_filter
-    first_question = general_question(values)
-    print('1')
 
-    return jsonify({'next_question': first_question})
-
-count = 0
 
 @app.route('/answer', methods=['POST'])
 def answer(): 
-    global count
-    count += 1
-    print(count)
-    print('2')
-    counter = session.get('counter', 0)
+    state = request.get_json(force=True)
+    print(data)
+
+    counter = state.get('count', 0)
     print(counter)
+
     if counter > 0: 
-        dataframe = session['dataframe']
+        dataframe = data.loc[state['index']]
     else:
+        # first question
         dataframe = data
-    columns_filter = session.get('columns_filter', [])
+        colloms_filter = []
+        collom, values = get_most_frequent_column(filter_columns(data))
+        colloms_filter.append(collom)
+        # first_question = general_question(values)
+        return {
+            'count': counter, 
+            'index': list(dataframe.index),
+            'next_question': 'Please filter:', 
+            'values':[str(v) for v in values]
+        }
+
+    columns_filter = state.get('columns_filter', [])
     new_dataframe = dataframe
     
     collom, values = get_most_frequent_column(filter_columns(new_dataframe))
     if len(new_dataframe) > 10: 
-        user_input = data.get('answer')
+        user_input = state.get('answer')
         columns_filter.append(collom)
         print(collom)
         print(values)
@@ -195,12 +187,22 @@ def answer():
     session['dataframe'] = new_dataframe.to_dict()
     session['counter'] = counter + 1
 
-    return jsonify({'next_question': response, 'finished': finished})
+    return {
+        'count': counter, 
+        'index': list(new_dataframe.index),
+        'next_question': response, 
+        'values':[str(v) for v in values],
+        'finished': finished
+    }
 
 @app.route('/finalize', methods=['GET'])
 def finalize():
     depression_status = ' Thank you!'
     return jsonify({'depression_status': depression_status})
+
+@app.route('/')
+def hello_world():
+    return render_template('index.html')
 
 if __name__ == '__main__':
     app.run(debug=True)

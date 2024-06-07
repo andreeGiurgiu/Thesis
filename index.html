@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Travel chat bot</title>
+        <script type="text/javascript">
+
+            function ask(answer) {
+                state = document.state
+                state['answer'] = answer
+                const params = {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify(state)
+                };
+                fetch("/answer", params).then((response) => {
+                    response.json().then((answer) =>{
+                        console.log(answer)
+                        
+                        answer['count'] += 1;
+                        document.state = answer;
+                        
+                        const div = document.createElement('div');
+                        div.innerHTML = '<br>' + answer['next_question'] + '<br>';
+
+                        answer['values'].forEach((val) => {
+                            const b = document.createElement('button');
+                            b.innerText = val;
+                            b.onclick = (() => ask(val))
+                            div.append(b);
+                        })
+
+                        document.body.append(div);
+                    });
+                });
+            }
+            function win() {
+                const div = document.createElement('div');
+                div.innerHTML = 'yay!';
+                document.body.appendChild(div);
+            }
+            function init() {
+                document.state = {};
+                ask(null)
+            }
+        </script>
+    </head>
+    <body onload="init()">
+        <h1>Travel Chat Bot</h1>
+        Let's plan your trip.
+    </body>
+</html>
