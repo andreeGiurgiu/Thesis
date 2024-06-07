@@ -14,7 +14,9 @@ Session(app)
 openai.api_key = 'x'
 
 # Load your dataset
-data = pd.read_csv('New_filter_sections.csv')
+import pathlib
+root = pathlib.Path(__file__).parent
+data = pd.read_csv(root / 'New_filter_sections.csv')
 
 # Getting only the colloms on which we want to do the filtering
 
