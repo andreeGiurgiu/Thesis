@@ -1,18 +1,25 @@
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-from flask_session import Session  # For session management
 import pandas as pd
 import openai
+import markdown
+import time
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='.')
 CORS(app)
-app.config["SESSION_PERMANENT"] = False
-app.config["SESSION_TYPE"] = "filesystem"
-Session(app)
 
-openai.api_key = 'sk-proj-fAgcyKyxgDuNFb5Ehbh2T3BlbkFJcAF0Xk1mXyhfPY0Q8HZp'
 
-data = pd.read_csv('/Users/andreeagiurgiu/Desktop/Thesis/New_filter_sections.csv')
+import pathlib
+root = pathlib.Path(__file__).parent
+print(root)
+
+# Configure your OpenAI API key here
+key = open(root / 'OPENAI_API_KEY.txt').read().strip()
+print(key)
+openai.api_key = key
+
+# Load your dataset
+data = pd.read_csv(root / 'New_filter_sections.csv')
 
 def filter_columns(dataframe):
     # List of columns to keep
@@ -20,18 +27,22 @@ def filter_columns(dataframe):
         'wheelchair', 'dietary', 'takeaway', 
         'indoor/outdoor seating', 'cuisine', 'beauty', 'shop', 
         'stars', 'internet_access', 'smoking', 'type', 'amenity', 
-        'meal', 'Micheline', 'category', 'Service', 
-        'room_facilities', 'accommodation_type', 'drink type', 
-        'music type', 'Ambiental', 'price range'
+        'meal', 'category', 'Service', 
+        'accommodation_type', 'drink type', 
+        'music type', 'Ambiental', 'price range', 'private_bath' , 'air_conditioning' , 'bath' , 'balcony' , 'view' ,
+        'kitchen' , 'tv',  'bed_number' , 'size','shop','brand'
+
     ]
 
     filtered_data = dataframe[dataframe.columns.intersection(columns_to_keep)]
+
+    # filtered_data = filtered_data.rename(columns={'type': 'activity'})
 
     return filtered_data
 
 def get_most_frequent_column(input_file_path):
     """
-    Identify the column with the highest number of unique values in a CSV file 
+    Identify the column with the highest number of filled (non-null) cells in a CSV file 
     and return its unique values.
 
     Parameters:
@@ -40,20 +51,18 @@ def get_most_frequent_column(input_file_path):
     Returns:
     tuple: A tuple containing the name of the column and its unique values as a pandas Series.
     """
-    # Load the CSV file
-    data = input_file_path
+   
 
-    # Calculate the number of unique values in each column
-    unique_values_count = data.nunique()
+    # Calculate the number of non-null values in each column
+    non_null_counts = input_file_path.count()
 
-    # Identify the column with the highest number of unique values
-    most_variant_column = unique_values_count.idxmax()
+    # Identify the column with the highest number of non-null values
+    most_filled_column = non_null_counts.idxmax()
 
     # Retrieve the unique values from this column
-    unique_values = data[most_variant_column].unique()
+    unique_values = input_file_path[most_filled_column].dropna().unique()
 
-    return (most_variant_column, unique_values)
-
+    return (most_filled_column, unique_values)
 
 def filter_data_by_column_value(input_file_path, column_name, filter_value):
     """
@@ -67,41 +76,180 @@ def filter_data_by_column_value(input_file_path, column_name, filter_value):
     Returns:
     pandas.DataFrame: A DataFrame containing only the rows where the column value matches the filter value.
     """
-    # Load the data
-    data = input_file_path
 
     # Filter the data based on the column name and value
-    filtered_data = data[data[column_name] == filter_value]
-
+    if filter_value not in input_file_path[column_name].values:
+        print(f"Error: Value '{filter_value}' not found in column '{column_name}'.")
+        print(f"Unique values in '{column_name}':", input_file_path[column_name].unique())
+    filtered_data = input_file_path[input_file_path[column_name] == filter_value]
     return filtered_data
 
 
-@app.route('/start', methods=['GET'])
-def start_conversation():
-    session['conversation'] = []  # Initialize conversation history
-    return jsonify({'next_question': "Hey, with what can I help you? Would you like to search for a place to sleep, eat, drink, do an activity, or buy ? Please just say sleep, eat, drink, do or buy:"})
+def three_questions(merged_dataframe):
+    questions = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+               {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate the dataframe given by the user and look only at the possible fill colloms that you have the data and that are different from each other so that the user can choose, and create 3 question that will help you find the perfect location."},
+               {"role": "user", "content": f"'{merged_dataframe}'" }
+        ]
+    )
+    return markdown.markdown(questions.choices[0].message.content)
+
+def general_question(values):
+        value_options = "\n".join([f"{i+1}. {v}" for i, v in enumerate(values)])
+        question = f"Choose a number corresponding to the value you want to filter by:\n{value_options}"
+        return question
+def final(merged_dataframe, user_input):
+    final_answer = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate theis database '{merged_dataframe}'and based on the user answer to choose exactly one place that you think will be best to recomand. Make sure that you specify the name of the place that is found on the title collom. Also make everything in a sentance specifying only the colloms with value"},
+                {"role": "user", "content": f"'{user_input}'" }
+        ]
+    )
+        
+    return markdown.markdown(final_answer.choices[0].message.content)
+
+
+def final_location(dataframe):
+    final_answer = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate the database given by the user and explain the possible option. Make sure that you first say the name that you find in the title or name collom of the places and then a short explanation. Give a cursive explanation. Say just thing that make sense for the place. Just explain the name, where can I find it and if it has a wibsite please also share it"},
+                 {"role": "user", "content": f"'{dataframe}'" }
+        ]
+    )
+    top_value = final_answer.choices[0].message.content
+    return markdown.markdown(top_value)
+     
+
+def choise(database,user_input, collom):
+    if user_input == 'yes':
+        new = filter_data_by_column_value(database,collom,user_input)
+    elif user_input == 'no':
+        new = database
+    else:
+        new = filter_data_by_column_value(database,collom,user_input)
+    return new
+
+
+
 
 @app.route('/answer', methods=['POST'])
-def process_answer():
-    user_input = request.json['answer']
-    session['conversation'].append(user_input)  # Store user input in session
-    
-    filtered_data = filter_data_by_column_value(data[data['type'] == user_input.strip().lower()])
-    
-    
-    if len(filtered_data) > 10:
-        most_variant_column, values = get_most_frequent_column(filtered_data)
-        next_question = f"Please specify your preference for {most_variant_column}: {', '.join(values)}"
-        session['current_column'] = most_variant_column  # Store current column being queried
-        return jsonify({'next_question': next_question})
+def answer(): 
+    state = request.get_json(force=True)
+    counter = state.get('count', 0)
+    if not counter: 
+        # first question
+        dataframe = filter_columns(data)
+        colloms_filter = []
+        collom, values = get_most_frequent_column(dataframe)
+        colloms_filter.append(collom)
+        # first_question = general_question(values)
+        return {
+            'start_time': state.get('start_time', time.time()),
+            'count': counter, 
+            'index': list(dataframe.index),
+            'next_question': f'Please filter {collom}:', 
+            'values':[str(v) for v in values],
+            'collom': collom,
+            'colloms_filter': colloms_filter,
+        }
     else:
-        # If the conversation needs to be finalized or enough filtering has been done
-        finalize_conversation(filtered_data)
-        return jsonify({'final_data': filtered_data.to_dict(orient='records'), 'finished': True})
+        # next questions
+        dataframe = filter_columns(data).loc[state['index']]
 
-def finalize_conversation(filtered_data):
-    # This function can summarize the conversation, provide final recommendations, etc.
-    print("Finalizing conversation with the final set of data.")
+        user_input = state.get('answer')
+        collom = state.get('collom')
+        if collom not in dataframe.columns:
+             print(f"Error: Column '{collom}' not found in the DataFrame.")
+        print('Filtering column:', collom)
+        
+        if collom == 'title':
+             dataframe = data.loc[dataframe.index]
+        new_dataframe = choise(dataframe, user_input, collom)
+        print('New dataframe length:', len(new_dataframe))
+        
+        
+        # Filter dataframe on columns
+        colloms_filter = state.get('colloms_filter')
+        colloms_filter = list(new_dataframe.columns.intersection(colloms_filter))
+        new_dataframe = new_dataframe.drop(columns=colloms_filter)
+        new_dataframe = new_dataframe.dropna(axis=1, how='all')
+
+        print('New dataframe columns:', new_dataframe.columns)
+        print(new_dataframe)
+
+        
+    
+    if len(new_dataframe )> 10:
+            collom, values = get_most_frequent_column(new_dataframe)
+            colloms_filter.append(collom)
+            print('next column to filter is ', collom)
+
+            if collom in ['wheelchair','takeaway', 'internet_access','private_bath' , 'air_conditioning', 'balcony', 'kitchen', 'tv']:
+                response = f'Do you need {collom}?'
+                return {
+                    'start_time': state.get('start_time', time.time()),
+                    'count': counter, 
+                    'index': list(new_dataframe.index),
+                    'next_question': response, 
+                    'values':['yes', 'no'],
+                    'collom': collom,
+                    'colloms_filter': colloms_filter,
+                }
+            else:
+                return {
+                    'start_time': state.get('start_time', time.time()),
+                    'count': counter, 
+                    'index': list(new_dataframe.index),
+                    'next_question': f'Please filter {collom}:', 
+                    'values':[str(v) for v in values],
+                    'collom': collom,
+                    'colloms_filter': colloms_filter,
+                }
+    elif len(new_dataframe)>1: 
+        filtered_dataframe = data.loc[new_dataframe.index].drop(columns=colloms_filter).dropna(axis=1, how='all')
+        print('filtered', filtered_dataframe)
+
+        response = three_questions(filtered_dataframe)
+        return {
+            'start_time': state.get('start_time', time.time()),
+            'count': counter, 
+            'index': list(new_dataframe.index),
+            'next_question': response, 
+            'values': list(filtered_dataframe['title']),
+            'collom': 'title',
+            'colloms_filter': colloms_filter,
+        }
+    else:
+        filtered_dataframe = data.loc[new_dataframe.index].drop(columns=colloms_filter).dropna(axis=1, how='all').iloc[0]
+        print('filtered', filtered_dataframe)
+
+        response = 'Recommendation: ' + str(filtered_dataframe['title'])
+
+        seconds = int(time.time() - state.get('start_time'))
+        response += f'<br><br>It took {counter} questions and {seconds} seconds.'
+        return {
+            'start_time': state.get('start_time', time.time()),
+            'count': counter, 
+            'index': list(new_dataframe.index),
+            'next_question': response, 
+            'values':[]
+        }
+
+
+
+
+
+@app.route('/finalize', methods=['GET'])
+def finalize():
+    depression_status = ' Thank you!'
+    return jsonify({'depression_status': depression_status})
+
+@app.route('/')
+def hello_world():
+    return render_template('index.html')
 
 if __name__ == '__main__':
-    app.run(debug=True, use_reloader=False)  # use_reloader=False if running with Flask-Session
+    app.run(debug=True)
