@@ -142,8 +142,8 @@ def start():
 
 @app.route('/answer', methods=['POST'])
 def answer(): 
-    counter = session.get('counter', 0)
-    columns_filter = session.get('columns_filter', [])
+    counter = session.get('counter')
+    columns_filter = session.get('columns_filter')
     if counter > 0:
         new_dataframe = session.get('dataframe')
     else:
@@ -189,7 +189,7 @@ def answer():
         user_input = data.get(merged_dataframe,'answer')
         response = final(user_input)
         finished = True
-    session['dataframe'] = new_dataframe
+    session['dataframe'] = new_dataframe.to_dict(orient='records')
     session['counter'] = counter + 1
     session['columns_filter'] = columns_filter
     session.modified = True

@@ -2,7 +2,7 @@ import csv
 from openai import OpenAI
 
 # Initialize the OpenAI client
-client = OpenAI(api_key='x')
+client = OpenAI(api_key=None)
 
 # Function to load data from a CSV file
 def load_csv_data(file_path):
@@ -15,7 +15,7 @@ def load_csv_data(file_path):
     'wikimedia_commons', 'contact:website', 'longitude', 'toilets:wheelchair', 'diet:vegetarian',
     'fee', 'hours', 'stars', 'changing_table', 'toilets', 'url', 'internet_access', 'alt', 'building',
     'outdoor_seating', 'smoking', 'diet:gluten_free', 'opening_hours', 'type', 'phone', 'amenity',
-    'old_name', 'price', 'tourism', 'website'
+    'old_name', 'price', 'tourism', 'website','amenity', 'check_date', 'cuisine', 'name', 'opening_hours', 'shop'
 ]
     data = []
     with open(file_path, newline='', encoding='utf-8') as csvfile:
@@ -40,22 +40,22 @@ def write_csv(data, file_path):
     'wikimedia_commons', 'contact:website', 'longitude', 'toilets:wheelchair', 'diet:vegetarian',
     'fee', 'hours', 'stars', 'changing_table', 'toilets', 'url', 'internet_access', 'alt', 'building',
     'outdoor_seating', 'smoking', 'diet:gluten_free', 'opening_hours', 'type', 'phone', 'amenity',
-    'old_name', 'price', 'tourism', 'website',
+    'old_name', 'price', 'tourism', 'website','amenity', 'brand', 'check_date', 'cuisine', 'name', 'opening_hours', 'shop',
             # New fields to add at the end
-            'meal', 'Micheline', 'category', 'Service', 'room_facilities', 'accommodation_type', 'drink type', 'music type', 'Ambiental','price range'
+            'meal', 'Micheline', 'category', 'Service', 'room_facilities', 'accommodation_type', 'drink type', 'music type', 'Ambiental','price range', 'private_bath' , 'air_conditioning' , 'bath' , 'balcony' , 'view' , 'kitchen' , 'tv',  'bed_number' , 'size'
         ]
 
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()
         for row in data:
             # Ensure all new fields exist in the dictionary to avoid KeyError
-            for field in ['meal', 'Micheline', 'category', 'Service', 'room_facilities', 'accommodation_type','drink type', 'music type', 'Ambiental']:
+            for field in ['meal', 'Micheline', 'category', 'Service', 'room_facilities', 'accommodation_type', 'drink type', 'music type', 'Ambiental','price range', 'private_bath' , 'air_conditioning' , 'bath' , 'balcony' , 'view' , 'kitchen' , 'tv',  'bed_number' , 'size']:
                 row.setdefault(field, '')
             writer.writerow(row)
 
 
 # Load data from the original Wikivoyage CSV file
-original_data = load_csv_data('/Users/andreeagiurgiu/Desktop/Thesis/new_better_wikivoyage2.csv')
+original_data = load_csv_data('/Users/andreeagiurgiu/Desktop/Thesis/test.csv')
 
 # Prepare the enhanced data list
 enhanced_data = []
@@ -84,12 +84,12 @@ for entry in original_data:
             unfilled_count += 1
     
 
-    if entry['type'].lower() == 'sleep':
+    if entry['type'].lower() == 'sleep' and entry['description']:
         if entry['price']:
             price_range = client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": "You are a system that categorize each place as cheap, medium, or expensive based on the price ranges. if the price of a place to sleep per nighth is around 50 euro mark it as cheap, if it is around 120 mark is at medium and if it more then 200 mark it as expensive"},
+                    {"role": "system", "content": "You are a system that categorize each place as cheap, medium, or expensive based on the price ranges. if the price of a place to sleep per nighth is around 50 euro mark it as cheap, if it is around 120 mark is at medium and if it more then 200 mark it as expensive. Please just say 1 word and if you are confused or do not know just say Nothing"},
                     {"role": "user", "content": entry['price']}
             ]
         )
@@ -100,7 +100,7 @@ for entry in original_data:
         accom_response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Identify the type of accommodation from the description. Possible types include: Hotel, Hostel, Apartment, House, Close to center, Near Airport.If you do not find anything or you are unsure just say nothing"},
+                {"role": "system", "content": "Identify the type of accommodation from the description. Possible types include: Hotel, Hostel, Apartment, House, Close to center, Near Airport.If you do not find anything or you are unsure or the description doesn't mention anything about this just say Nothing"},
                 {"role": "user", "content": entry['description']}
             ]
         )
@@ -117,6 +117,106 @@ for entry in original_data:
         )
         facilities = facilities_response.choices[0].message.content
         entry['room_facilities'] = facilities
+
+        if entry['description']:
+            #Privare bath
+            private_bath = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": " Determine from the description if the hotel room has a Private bath. If it has say yes, if it dosn't say no. If you are not sure or is not mention in the description, just say Nothing"},
+                {"role": "user", "content": entry['description']}
+            ]
+        )
+            private_bath_type = private_bath.choices[0].message.content
+            entry['private_bath'] = private_bath_type
+
+            #Air conditioning
+            air_conditioning = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": " Determine from the description if the hotel room has a air conditioning. If it has say yes, if it dosn't say no. If you are not sure or is not mention in the description, just say Nothing"},
+                {"role": "user", "content": entry['description']}
+            ]
+        )
+            air_conditioning_type = air_conditioning.choices[0].message.content
+            entry['air_conditioning'] = air_conditioning_type
+
+            #Bath
+            bath= client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": " Determine from the description if the hotel room has a bath. If it has say yes, if it dosn't say no. If you are not sure or is not mention in the description, just say Nothing"},
+                {"role": "user", "content": entry['description']}
+            ]
+        )
+            bath_type = bath.choices[0].message.content
+            entry['bath'] = bath_type
+
+            #Balcony
+            balcony= client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": " Determine from the description if the hotel room has a balcony. If it has say yes, if it dosn't say no. If you are not sure or is not mention in the description, just say Nothing"},
+                {"role": "user", "content": entry['description']}
+            ]
+        )
+            balcony_type = balcony.choices[0].message.content
+            entry['balcony'] = balcony_type
+
+            #View
+            view = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": " Determine from the description if the hotel room has a view. Please just choose if and say: city view, mountain view, park view, if it dosn't say no. If you are not sure or is not mention in the description, just say Nothing"},
+                {"role": "user", "content": entry['description']}
+            ]
+        )
+            view_type = view.choices[0].message.content
+            entry['view'] = view_type
+
+            #Kitchen
+            kitchen = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": " Determine from the description if the hotel room has a kitchen. If it has say yes, if it dosn't say no. If you are not sure or is not mention in the description, just say Nothing"},
+                {"role": "user", "content": entry['description']}
+            ]
+        )
+            kitchen_type = kitchen.choices[0].message.content
+            entry['kitchen'] =kitchen_type
+
+            #TV
+            tv = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": " Determine from the description if the hotel room has a TV. If it has say yes, if it dosn't say no. If you are not sure or is not mention in the description, just say Nothing"},
+                {"role": "user", "content": entry['description']}
+            ]
+        )
+            tv_type = tv.choices[0].message.content
+            entry['tv'] =tv_type
+
+            #Bed numbers
+            bed_number = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": " Determine from the description if it specify how many number of beds does the accomodation has. If it has say the max number of beds you can have, if it dosn't say 0. If you are not sure or is not mention in the description, just say Nothing"},
+                {"role": "user", "content": entry['description']}
+            ]
+        )
+            bed_number_type = bed_number.choices[0].message.content
+            entry['bed_number'] = bed_number_type
+
+            #Size
+            size = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": " Determine from the description if it specify the room size. If it has specify just small, medium or large. If you are not sure or is not mention in the description, just say Nothing"},
+                {"role": "user", "content": entry['description']}
+            ]
+        )
+            size_type = size.choices[0].message.content
+            entry['size'] = size_type
 
         # Predict service quality
         service_response = client.chat.completions.create(
@@ -147,7 +247,7 @@ for entry in original_data:
         category_response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Identify the type of acctivity from the description. Possible types include:Cultural, Historic, Local, Tehnologic, Walking, Testing, Art, Night, Museum, Theater, Golf, Park, Entartiment, ZOO, Cinema, Interactive"},
+                {"role": "system", "content": "Identify the type of acctivity from the description. Possible types include:Cultural, Historic, Local, Tehnologic, Walking, Testing, Art, Night, Museum, Theater, Golf, Park, Entartiment, ZOO, Cinema, Interactive.Please just chose 1 that it would fit the most. Alo if you are confused or there is nothing indicated what type of activity is just say Nothing"},
                 {"role": "user", "content": entry['description']}
             ]
         )
@@ -169,7 +269,7 @@ for entry in original_data:
         meal_response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Identify the type of meal from the description. Possible types include:Breakfast, Brunch, Lunch, Dinner"},
+                {"role": "system", "content": "Identify the type of meal from the description. Possible types include:Breakfast, Brunch, Lunch, Dinner.Please just chose one. If there is nothing mention, or you are confused just say Nothing"},
                 {"role": "user", "content": entry['description']}
             ]
         )
@@ -179,7 +279,7 @@ for entry in original_data:
         Micheline_response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Identify the type of Micheline from the description. Possible types include:1 start, 2 start, 3 start, No"},
+                {"role": "system", "content": "Identify the type of Micheline from the description. Please just specify if it is 1 start, 2 start, 3 start or if there is notging mention about this juust say No"},
                 {"role": "user", "content": entry['description']}
             ]
         )
@@ -243,13 +343,25 @@ for entry in original_data:
         Ambiental_type = Ambiental_response.choices[0].message.content
         entry['Ambiental'] = Ambiental_type
 
+        if entry['type'] == 'other' and entry['price']:
+            price_range = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are a system that categorize each place as cheap, medium, or expensive based on the price ranges. if the price of an type of activity from there is around 8 euro mark it as cheap, if it is around 15 mark is at medium and if it more then 20 mark it as expensive"},
+                    {"role": "user", "content": entry['price']}
+            ]
+        )
+            price_range_type = price_range.choices[0].message.content
+            entry['price range'] = price_range_type
+
+
 
 
     
     enhanced_data.append(entry)
 
 # Write the enhanced data to a new CSV file
-write_csv(enhanced_data, '/Users/andreeagiurgiu/Desktop/Thesis/OpenAI_add_new_Buget_Sleep_Do_Eat_attributes.csv')
+write_csv(enhanced_data, '/Users/andreeagiurgiu/Desktop/Thesis/OpenAI_add_to_test_new_Buget_Sleep_Do_Eat_attributes.csv')
 
 # Print the counts of filled and unfilled price cells
 print(f"Filled: {filled_count}, Unfilled: {unfilled_count}")

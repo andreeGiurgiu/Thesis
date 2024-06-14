@@ -4,12 +4,12 @@ import numpy as np
 import csv
 
 # Configure your OpenAI API key here
-openai.api_key = 'x'
+openai.api_key = None
 
 
 
 # Load your dataset
-data = pd.read_csv('/Users/andreeagiurgiu/Desktop/Thesis/New_filter_sections2.csv')
+data = pd.read_csv('/Users/andreeagiurgiu/Desktop/Thesis/New_filter_sections3.csv')
 
 # Getting only the colloms on which we want to do the filtering
 
@@ -87,6 +87,7 @@ def manin_conversation(dataframe):
 
        #most variant collom
        collom, values = get_most_frequent_column(filter_columns(new_dataframe))
+       print(collom)
        colloms_filter.append(collom)
 
        if collom in ['wheelchair','takeaway', 'internet_access','private_bath' , 'air_conditioning', 'balcony', 'kitchen', 'tv']:
@@ -144,7 +145,7 @@ def manin_conversation(dataframe):
         final_answer = openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate theis database '{merged_dataframe}'and based on the user answer to choose exactly one place that you think will be best to recomand. Make sure that you specify the name of the place that is found on the title collom. Also make everything in a sentance specifying only the colloms with value"},
+                {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate theis database '{merged_dataframe}'and based on the user answer to choose exactly one place that you think will be best to recomand. Make sure that you specify the name of the place that is found on the title or name collom if existed. Also make everything in a sentance specifying only the colloms with value. If there is unknow value just not mention it"},
                 {"role": "user", "content": f"'{user_input}'" }
         ]
     )
@@ -154,7 +155,7 @@ def manin_conversation(dataframe):
         final_answer = openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate the database given by the user and explain the two possible option. Make sure that you first say the name that you fint in the title or name collom of the places and then a short explanation. Give a cursive explanation. Say just thing that make sense for the place. Just explain the name, where can I find it and if it has a wibsite please also share it"},
+                {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate the database given by the user and explain the two possible option. Make sure that you first say the name that you find in the title or name collom of the places and then a short explanation. Give a cursive explanation. Say just thing that make sense for the place. Just explain the name, where can I find it and if it has a wibsite please also share it"},
                  {"role": "user", "content": f"'{new_dataframe}'" }
         ]
     )
@@ -164,7 +165,7 @@ def manin_conversation(dataframe):
 
 
 
-input_data = pd.read_csv('/Users/andreeagiurgiu/Desktop/Thesis/New_filter_sections2.csv')
+input_data = pd.read_csv('/Users/andreeagiurgiu/Desktop/Thesis/New_filter_sections3.csv')
 final_data = manin_conversation(input_data)
 
 

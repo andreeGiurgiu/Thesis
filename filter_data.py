@@ -10,7 +10,7 @@ from nltk.corpus import wordnet
 #nltk.download('averaged_perceptron_tagger')
 
 # Load your CSV file
-data = pd.read_csv('/Users/andreeagiurgiu/Desktop/Thesis/OpenAI_add_to_test_new_Buget_Sleep_Do_Eat_attributes.csv')
+data = pd.read_csv('/Users/andreeagiurgiu/Desktop/Thesis/OpenAI_add_Wikipedia+WV.csv')
 
 # Initialize the WordNetLemmatizer
 lemmatizer = WordNetLemmatizer()
@@ -93,19 +93,19 @@ for column in columns_to_clean:
     data[column] = data[column].apply(clean_column)
 
 # Define the function to update the amenity column
-def update_amenity(amenity, building, tourism):
+def update_amenity(amenity, building, tourism,accommodation_type):
     if pd.isna(amenity) or amenity == '':
-        return building if not pd.isna(building) and building != '' else tourism if not pd.isna(tourism) and tourism != '' else None
+        return accommodation_type if not pd.isna(accommodation_type) else building if not pd.isna(building) and building != '' else tourism if not pd.isna(tourism) and tourism != '' else None
     return amenity
 
 # Apply the functions to create the new columns and update the existing ones
 data['indoor/outdoor seating'] = data.apply(lambda x: combine_seating(x['indoor_seating'], x['outdoor_seating']), axis=1)
 data['dietary'] = data.apply(lambda x: combine_diet(x['diet:vegan'], x['diet:vegetarian'], x['diet:gluten_free']), axis=1)
 data['price'] = data.apply(lambda x: update_price(x['fee'], x['price']), axis=1)
-data['amenity'] = data.apply(lambda x: update_amenity(x['amenity'], x['building'], x['tourism']), axis=1)
+data['amenity'] = data.apply(lambda x: update_amenity(x['amenity'], x['building'], x['tourism'],x['accommodation_type']), axis=1)
 
 # Drop the specified columns
-columns_to_drop = ['indoor_seating', 'outdoor_seating', 'diet:vegan', 'diet:vegetarian', 'diet:gluten_free', 'fee', 'building', 'tourism']
+columns_to_drop = ['indoor_seating', 'outdoor_seating', 'diet:vegan', 'diet:vegetarian', 'diet:gluten_free', 'fee', 'building', 'tourism','accommodation_type']
 data.drop(columns=columns_to_drop, inplace=True)
 
 # delete the nothing colloms from Chat
@@ -113,7 +113,7 @@ data.replace(["Nothing", "nothing", 'nan', 'Unknown', 'None.','Nothing.', pd.NA,
 data.replace(["wlan"], "yes", inplace=True)
 data.replace(["cleanliness"], "clean", inplace=True)
 # Save the updated DataFrame to a new CSV file
-data.to_csv('/Users/andreeagiurgiu/Desktop/Thesis/New_filter_sections2.csv', index=False)
+data.to_csv('/Users/andreeagiurgiu/Desktop/Thesis/New_filter_sections3.csv', index=False)
 
 print("File has been updated and saved.")
 

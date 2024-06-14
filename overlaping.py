@@ -12,7 +12,7 @@ def write_keys_to_file(keys, output_file_path):
         for key in sorted(keys):
             file.write(f"{key}\n")
 
-# Set data 
+# load data
 frequencies_analysis_keys = extract_keys_from_file('/Users/andreeagiurgiu/Desktop/Thesis/frequencies_analysis.txt')
 key_frequencies_keys = extract_keys_from_file('/Users/andreeagiurgiu/Desktop/Thesis/key_frequencies.txt')
 
