@@ -20,10 +20,6 @@ key = open(root / 'OPENAI_API_KEY.txt').read().strip()
 print(key)
 openai.api_key = key
 
-# Load your dataset
-data = pd.read_csv(root / 'New_filter_sections.csv')
-
-
 import pathlib
 root = pathlib.Path(__file__).parent
 print(root)
@@ -221,7 +217,13 @@ def choise(database,user_input, collom):
 
 @app.route('/answer', methods=['POST'])
 def answer(): 
+    
     state = request.get_json(force=True)
+    fname = state.get('dataset', 'New_filter_sections.csv')
+    print('Using ', fname)
+    # Load your dataset
+    data = pd.read_csv(root / fname)
+
     counter = state.get('count', 0)
     if not counter: 
         # first question

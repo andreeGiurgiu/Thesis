@@ -6,6 +6,8 @@
 
             function ask(answer) {
                 state = document.state
+                const urlParams = new URLSearchParams(window.location.search);
+                state['dataset'] = urlParams.get('dataset');
                 state['answer'] = answer
                 const params = {
                   method: 'POST',
