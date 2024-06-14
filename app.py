@@ -219,7 +219,7 @@ def choise(database,user_input, collom):
 def answer(): 
     
     state = request.get_json(force=True)
-    fname = state.get('dataset', 'New_filter_sections.csv')
+    fname = state.get('dataset') or 'New_filter_sections.csv'
     print('Using ', fname)
     # Load your dataset
     data = pd.read_csv(root / fname)

@@ -8,7 +8,7 @@
                 state = document.state
                 const urlParams = new URLSearchParams(window.location.search);
                 state['dataset'] = urlParams.get('dataset');
-                state['answer'] = answer
+                state['answer'] = answer;
                 const params = {
                   method: 'POST',
                   headers: {
