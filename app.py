@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import pandas as pd
 import openai
@@ -6,7 +7,21 @@ import markdown
 import time
 
 app = Flask(__name__, template_folder='.')
+app = Flask(__name__, template_folder='.')
 CORS(app)
+
+
+import pathlib
+root = pathlib.Path(__file__).parent
+print(root)
+
+# Configure your OpenAI API key here
+key = open(root / 'OPENAI_API_KEY.txt').read().strip()
+print(key)
+openai.api_key = key
+
+# Load your dataset
+data = pd.read_csv(root / 'New_filter_sections.csv')
 
 
 import pathlib
@@ -32,9 +47,16 @@ def filter_columns(dataframe):
         'music type', 'Ambiental', 'price range', 'private_bath' , 'air_conditioning' , 'bath' , 'balcony' , 'view' ,
         'kitchen' , 'tv',  'bed_number' , 'size','shop','brand'
 
+        'meal', 'category', 'Service', 
+        'accommodation_type', 'drink type', 
+        'music type', 'Ambiental', 'price range', 'private_bath' , 'air_conditioning' , 'bath' , 'balcony' , 'view' ,
+        'kitchen' , 'tv',  'bed_number' , 'size','shop','brand'
+
     ]
 
     filtered_data = dataframe[dataframe.columns.intersection(columns_to_keep)]
+
+    # filtered_data = filtered_data.rename(columns={'type': 'activity'})
 
     # filtered_data = filtered_data.rename(columns={'type': 'activity'})
 
@@ -42,6 +64,7 @@ def filter_columns(dataframe):
 
 def get_most_frequent_column(input_file_path):
     """
+    Identify the column with the highest number of filled (non-null) cells in a CSV file 
     Identify the column with the highest number of filled (non-null) cells in a CSV file 
     and return its unique values.
 
@@ -55,13 +78,21 @@ def get_most_frequent_column(input_file_path):
 
     # Calculate the number of non-null values in each column
     non_null_counts = input_file_path.count()
+   
 
+    # Calculate the number of non-null values in each column
+    non_null_counts = input_file_path.count()
+
+    # Identify the column with the highest number of non-null values
+    most_filled_column = non_null_counts.idxmax()
     # Identify the column with the highest number of non-null values
     most_filled_column = non_null_counts.idxmax()
 
     # Retrieve the unique values from this column
     unique_values = input_file_path[most_filled_column].dropna().unique()
+    unique_values = input_file_path[most_filled_column].dropna().unique()
 
+    return (most_filled_column, unique_values)
     return (most_filled_column, unique_values)
 
 def filter_data_by_column_value(input_file_path, column_name, filter_value):
@@ -82,7 +113,60 @@ def filter_data_by_column_value(input_file_path, column_name, filter_value):
         print(f"Error: Value '{filter_value}' not found in column '{column_name}'.")
         print(f"Unique values in '{column_name}':", input_file_path[column_name].unique())
     filtered_data = input_file_path[input_file_path[column_name] == filter_value]
+    if filter_value not in input_file_path[column_name].values:
+        print(f"Error: Value '{filter_value}' not found in column '{column_name}'.")
+        print(f"Unique values in '{column_name}':", input_file_path[column_name].unique())
+    filtered_data = input_file_path[input_file_path[column_name] == filter_value]
     return filtered_data
+
+
+def three_questions(merged_dataframe):
+    questions = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+               {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate the dataframe given by the user and look only at the possible fill colloms that you have the data and that are different from each other so that the user can choose, and create 3 question that will help you find the perfect location."},
+               {"role": "user", "content": f"'{merged_dataframe}'" }
+        ]
+    )
+    return markdown.markdown(questions.choices[0].message.content)
+
+def general_question(values):
+        value_options = "\n".join([f"{i+1}. {v}" for i, v in enumerate(values)])
+        question = f"Choose a number corresponding to the value you want to filter by:\n{value_options}"
+        return question
+def final(merged_dataframe, user_input):
+    final_answer = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate theis database '{merged_dataframe}'and based on the user answer to choose exactly one place that you think will be best to recomand. Make sure that you specify the name of the place that is found on the title collom. Also make everything in a sentance specifying only the colloms with value"},
+                {"role": "user", "content": f"'{user_input}'" }
+        ]
+    )
+        
+    return markdown.markdown(final_answer.choices[0].message.content)
+
+
+def final_location(dataframe):
+    final_answer = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate the database given by the user and explain the possible option. Make sure that you first say the name that you find in the title or name collom of the places and then a short explanation. Give a cursive explanation. Say just thing that make sense for the place. Just explain the name, where can I find it and if it has a wibsite please also share it"},
+                 {"role": "user", "content": f"'{dataframe}'" }
+        ]
+    )
+    top_value = final_answer.choices[0].message.content
+    return markdown.markdown(top_value)
+     
+
+def choise(database,user_input, collom):
+    if user_input == 'yes':
+        new = filter_data_by_column_value(database,collom,user_input)
+    elif user_input == 'no':
+        new = database
+    else:
+        new = filter_data_by_column_value(database,collom,user_input)
+    return new
+
 
 
 def three_questions(merged_dataframe):
@@ -252,4 +336,5 @@ def hello_world():
     return render_template('index.html')
 
 if __name__ == '__main__':
+    app.run(debug=True)
     app.run(debug=True)
