@@ -1,12 +1,11 @@
 from flask import Flask, request, jsonify, render_template
-from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import pandas as pd
 import openai
 import markdown
 import time
+import math
 
-app = Flask(__name__, template_folder='.')
 app = Flask(__name__, template_folder='.')
 CORS(app)
 
@@ -30,7 +29,7 @@ print(key)
 openai.api_key = key
 
 # Load your dataset
-data = pd.read_csv(root / 'New_filter_sections.csv')
+data = pd.read_csv(root /'Final_Database2.csv')
 
 def filter_columns(dataframe):
     # List of columns to keep
@@ -52,9 +51,6 @@ def filter_columns(dataframe):
 
     filtered_data = dataframe[dataframe.columns.intersection(columns_to_keep)]
 
-    # filtered_data = filtered_data.rename(columns={'type': 'activity'})
-
-    # filtered_data = filtered_data.rename(columns={'type': 'activity'})
 
     return filtered_data
 
@@ -74,21 +70,13 @@ def get_most_frequent_column(input_file_path):
 
     # Calculate the number of non-null values in each column
     non_null_counts = input_file_path.count()
-   
 
-    # Calculate the number of non-null values in each column
-    non_null_counts = input_file_path.count()
-
-    # Identify the column with the highest number of non-null values
-    most_filled_column = non_null_counts.idxmax()
     # Identify the column with the highest number of non-null values
     most_filled_column = non_null_counts.idxmax()
 
     # Retrieve the unique values from this column
     unique_values = input_file_path[most_filled_column].dropna().unique()
-    unique_values = input_file_path[most_filled_column].dropna().unique()
 
-    return (most_filled_column, unique_values)
     return (most_filled_column, unique_values)
 
 def filter_data_by_column_value(input_file_path, column_name, filter_value):
@@ -116,30 +104,28 @@ def filter_data_by_column_value(input_file_path, column_name, filter_value):
     return filtered_data
 
 
-def three_questions(merged_dataframe):
+def three_questions(merged_dataframe,value):
     questions = openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-               {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate the dataframe given by the user and look only at the possible fill colloms that you have the data and that are different from each other so that the user can choose, and create 3 question that will help you find the perfect location."},
+               {"role": "system", "content": f"You are a travel agents that recives a dataframe from the user and needs to explain the places by first saying the title of the place from this '{value}' list and then a short explanation about the values that you find in the cells that are fill. Please just mention the explanation not give a list of the colloms are full or not"},
                {"role": "user", "content": f"'{merged_dataframe}'" }
         ]
     )
     return markdown.markdown(questions.choices[0].message.content)
 
-def general_question(values):
-        value_options = "\n".join([f"{i+1}. {v}" for i, v in enumerate(values)])
-        question = f"Choose a number corresponding to the value you want to filter by:\n{value_options}"
-        return question
-def final(merged_dataframe, user_input):
-    final_answer = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate theis database '{merged_dataframe}'and based on the user answer to choose exactly one place that you think will be best to recomand. Make sure that you specify the name of the place that is found on the title collom. Also make everything in a sentance specifying only the colloms with value"},
-                {"role": "user", "content": f"'{user_input}'" }
-        ]
-    )
-        
-    return markdown.markdown(final_answer.choices[0].message.content)
+
+     
+
+def choise(database,user_input, collom):
+    if user_input == 'yes':
+        new = filter_data_by_column_value(database,collom,user_input)
+    elif user_input == 'no':
+        new = database
+    else:
+        new = filter_data_by_column_value(database,collom,user_input)
+    return new
+
 
 
 def final_location(dataframe):
@@ -154,72 +140,19 @@ def final_location(dataframe):
     return markdown.markdown(top_value)
      
 
-def choise(database,user_input, collom):
-    if user_input == 'yes':
-        new = filter_data_by_column_value(database,collom,user_input)
-    elif user_input == 'no':
-        new = database
-    else:
-        new = filter_data_by_column_value(database,collom,user_input)
-    return new
 
-
-
-def three_questions(merged_dataframe):
-    questions = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-               {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate the dataframe given by the user and look only at the possible fill colloms that you have the data and that are different from each other so that the user can choose, and create 3 question that will help you find the perfect location."},
-               {"role": "user", "content": f"'{merged_dataframe}'" }
-        ]
-    )
-    return markdown.markdown(questions.choices[0].message.content)
-
-def general_question(values):
-        value_options = "\n".join([f"{i+1}. {v}" for i, v in enumerate(values)])
-        question = f"Choose a number corresponding to the value you want to filter by:\n{value_options}"
-        return question
-def final(merged_dataframe, user_input):
-    final_answer = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate theis database '{merged_dataframe}'and based on the user answer to choose exactly one place that you think will be best to recomand. Make sure that you specify the name of the place that is found on the title collom. Also make everything in a sentance specifying only the colloms with value"},
-                {"role": "user", "content": f"'{user_input}'" }
-        ]
-    )
-        
-    return markdown.markdown(final_answer.choices[0].message.content)
-
-
-def final_location(dataframe):
-    final_answer = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": f"You are a travel agents that want to find the perfect place for the user. You need to asimilate the database given by the user and explain the possible option. Make sure that you first say the name that you find in the title or name collom of the places and then a short explanation. Give a cursive explanation. Say just thing that make sense for the place. Just explain the name, where can I find it and if it has a wibsite please also share it"},
-                 {"role": "user", "content": f"'{dataframe}'" }
-        ]
-    )
-    top_value = final_answer.choices[0].message.content
-    return markdown.markdown(top_value)
-     
-
-def choise(database,user_input, collom):
-    if user_input == 'yes':
-        new = filter_data_by_column_value(database,collom,user_input)
-    elif user_input == 'no':
-        new = database
-    else:
-        new = filter_data_by_column_value(database,collom,user_input)
-    return new
-
-
+def is_nan_str(value):
+    try:
+        return math.isnan(float(value))
+    except (TypeError, ValueError):
+        return value.lower() == 'nan'
 
 
 @app.route('/answer', methods=['POST'])
 def answer(): 
     
     state = request.get_json(force=True)
-    fname = state.get('dataset') or 'New_filter_sections.csv'
+    fname = state.get('dataset') or 'Final_Database1.csv'
     print('Using ', fname)
     # Load your dataset
     data = pd.read_csv(root / fname)
@@ -231,7 +164,7 @@ def answer():
         colloms_filter = []
         collom, values = get_most_frequent_column(dataframe)
         colloms_filter.append(collom)
-        # first_question = general_question(values)
+
         return {
             'start_time': state.get('start_time', time.time()),
             'count': counter, 
@@ -247,28 +180,28 @@ def answer():
 
         user_input = state.get('answer')
         collom = state.get('collom')
-        if collom not in dataframe.columns:
-             print(f"Error: Column '{collom}' not found in the DataFrame.")
-        print('Filtering column:', collom)
         
         if collom == 'title':
              dataframe = data.loc[dataframe.index]
+
         new_dataframe = choise(dataframe, user_input, collom)
         print('New dataframe length:', len(new_dataframe))
-        
-        
-        # Filter dataframe on columns
+
+      
+             # Filter dataframe on columns
         colloms_filter = state.get('colloms_filter')
         colloms_filter = list(new_dataframe.columns.intersection(colloms_filter))
+
         new_dataframe = new_dataframe.drop(columns=colloms_filter)
         new_dataframe = new_dataframe.dropna(axis=1, how='all')
+        
 
         print('New dataframe columns:', new_dataframe.columns)
         print(new_dataframe)
 
         
     
-    if len(new_dataframe )> 10:
+    if len(new_dataframe )>= 10:
             collom, values = get_most_frequent_column(new_dataframe)
             colloms_filter.append(collom)
             print('next column to filter is ', collom)
@@ -298,21 +231,34 @@ def answer():
         filtered_dataframe = data.loc[new_dataframe.index].drop(columns=colloms_filter).dropna(axis=1, how='all')
         print('filtered', filtered_dataframe)
 
-        response = three_questions(filtered_dataframe)
+        
+        if 'title' in filtered_dataframe:
+           value = list(filtered_dataframe['title'])
+        elif 'name' in filtered_dataframe:
+           value = list(filtered_dataframe['name'])
+        else:
+            value = list(filtered_dataframe['website'])
+        value = [x for x in value if not is_nan_str(x)]
+        response = three_questions(filtered_dataframe,value)
+        print(value)
         return {
             'start_time': state.get('start_time', time.time()),
             'count': counter, 
             'index': list(new_dataframe.index),
             'next_question': response, 
-            'values': list(filtered_dataframe['title']),
+            'values': value,
             'collom': 'title',
             'colloms_filter': colloms_filter,
         }
     else:
         filtered_dataframe = data.loc[new_dataframe.index].drop(columns=colloms_filter).dropna(axis=1, how='all').iloc[0]
         print('filtered', filtered_dataframe)
-
-        response = 'Recommendation: ' + str(filtered_dataframe['title'])
+        if 'title' in filtered_dataframe:
+           response = 'Recommendation: ' + str(filtered_dataframe['title'])
+        elif 'name' in filtered_dataframe:
+           response = 'Recommendation: ' + str(filtered_dataframe['name'])
+        else:
+            response = final_location(filtered_dataframe)
 
         seconds = int(time.time() - state.get('start_time'))
         response += f'<br><br>It took {counter} questions and {seconds} seconds.'
