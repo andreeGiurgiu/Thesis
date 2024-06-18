@@ -39,7 +39,7 @@ Daatabase 4 = To the datbase 3 we have added the text from the website of the lo
 #### 6.1 Adding website text website.py + website_in_description.py
 We use the Fetch API in order to extract the text from the websites find on the OM/WV data and add it to the description cell
 
-#### 6.2 Adding OSM locations
+#### 6.2 Adding OSM locations database_OSM_adds_on.py
 We extract location from OSM bases on searching if in the priperties data we find any shops or in amenity section they have as a variable restaurant,fast_food,pub,bar,cinema. As we did not want to look into data quantity but rather data quality we also ensure that all the extracted locations have a website and amaenity property and it has at least 15 different tags
 
 ### 7 Creating variabele tags with OpenAI API Buget.py
